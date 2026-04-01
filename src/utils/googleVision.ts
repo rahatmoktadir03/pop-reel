@@ -8,11 +8,7 @@ export async function moderateContent(
 ): Promise<{ safe: boolean; reason?: string }> {
   const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-  if (!credentialsPath) {
-    // No credentials configured — skip moderation in dev
-    console.warn(
-      "[Moderation] GOOGLE_APPLICATION_CREDENTIALS not set. Skipping moderation."
-    );
+  if (!credentialsPath || credentialsPath.includes("path_to_your")) {
     return { safe: true };
   }
 

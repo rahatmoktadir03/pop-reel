@@ -35,6 +35,9 @@
     "weaviate-client": "^3.3.4",
     "weaviate-ts-client": "^2.2.0"
   },
+  "overrides": {
+    "effect": "3.17.7"
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
