@@ -62,6 +62,7 @@ export default function VideoCard({
   onDelete,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const { user, isSignedIn } = useUser();
   const router = useRouter();
 
@@ -74,12 +75,12 @@ export default function VideoCard({
   const [commentCount, setCommentCount] = useState(video._count.comments);
   const [showMenu, setShowMenu] = useState(false);
 
-  // Play/pause based on visibility
+  // Auto-play/pause driven by parent's isActive prop
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
+
     if (isActive) {
-      // Wait until the browser has enough data before calling play()
       if (el.readyState >= 2) {
         el.play().catch(() => {});
       } else {
@@ -94,12 +95,18 @@ export default function VideoCard({
 
   // Sync mute state
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = globalMuted;
-    }
+    if (videoRef.current) videoRef.current.muted = globalMuted;
   }, [globalMuted]);
 
-  // Record view when video becomes active
+  // Progress bar — update DOM directly to avoid re-renders on every frame
+  const handleTimeUpdate = useCallback(() => {
+    const el = videoRef.current;
+    const bar = progressRef.current;
+    if (!el || !bar || !el.duration) return;
+    bar.style.width = `${(el.currentTime / el.duration) * 100}%`;
+  }, []);
+
+  // Record view after 3s of watching
   useEffect(() => {
     if (!isActive) return;
     const timer = setTimeout(() => {
@@ -115,7 +122,7 @@ export default function VideoCard({
   const requireAuth = useCallback(
     (action: () => void) => {
       if (!isSignedIn) {
-        toast("Sign in to interact with videos", { icon: "🔒" });
+        toast("Sign in to interact", { icon: "🔒" });
         router.push("/sign-in");
         return;
       }
@@ -191,11 +198,12 @@ export default function VideoCard({
     }
   };
 
-  const togglePlay = () => {
+  // Tapping the card background toggles play/pause
+  const handleCardTap = () => {
     const el = videoRef.current;
     if (!el) return;
     if (el.paused) {
-      el.play();
+      el.play().catch(() => {});
     } else {
       el.pause();
     }
@@ -205,39 +213,53 @@ export default function VideoCard({
 
   return (
     <>
-      <div className="relative w-full h-screen bg-black flex items-center justify-center snap-start overflow-hidden">
-        {/* Video */}
+      {/* Full-screen card */}
+      <div className="relative w-full h-full bg-black overflow-hidden select-none">
+
+        {/* ── Video ── */}
         <video
           ref={videoRef}
           src={video.url}
           loop
           playsInline
           muted={globalMuted}
-          className="w-full h-full object-contain"
+          className="absolute inset-0 w-full h-full object-cover"
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
-          onError={() => {/* suppress media errors from Next.js dev overlay */}}
-          onClick={togglePlay}
+          onTimeUpdate={handleTimeUpdate}
+          onError={() => {}}
         />
 
-        {/* Pause indicator */}
+        {/* ── Gradients ── */}
+        <div className="absolute inset-0 pointer-events-none z-10">
+          {/* bottom-up gradient for text readability */}
+          <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+          {/* top-down light gradient */}
+          <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/50 to-transparent" />
+        </div>
+
+        {/* ── Tap-to-play layer (z-20, below buttons) ── */}
+        <div
+          className="absolute inset-0 z-20"
+          onClick={handleCardTap}
+        />
+
+        {/* ── Pause indicator ── */}
         {!playing && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-black/40 rounded-full p-4">
-              <Play className="w-12 h-12 text-white fill-white" />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <div className="bg-black/40 rounded-full p-5 backdrop-blur-sm border border-white/10">
+              <Play className="w-14 h-14 text-white fill-white" />
             </div>
           </div>
         )}
 
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+        {/* ── Right action bar (z-30) ── */}
+        <div className="absolute right-3 bottom-24 md:bottom-10 z-30 flex flex-col items-center gap-5">
 
-        {/* Right actions */}
-        <div className="absolute right-3 bottom-32 flex flex-col items-center gap-5">
           {/* Avatar + Follow */}
-          <div className="flex flex-col items-center gap-1">
-            <Link href={`/profile/${video.userId}`}>
-              <div className="w-12 h-12 rounded-full bg-zinc-700 overflow-hidden border-2 border-white">
+          <div className="flex flex-col items-center gap-1.5">
+            <Link href={`/profile/${video.userId}`} className="block" onClick={(e) => e.stopPropagation()}>
+              <div className="w-11 h-11 rounded-full bg-zinc-700 overflow-hidden border-2 border-white shadow-lg">
                 {video.user.avatar ? (
                   <img
                     src={video.user.avatar}
@@ -245,20 +267,20 @@ export default function VideoCard({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                    {video.user.displayName[0]?.toUpperCase()}
+                  <div className="w-full h-full flex items-center justify-center text-white font-bold text-base bg-gradient-to-br from-pink-500 to-rose-600">
+                    {(video.user.displayName[0] ?? "?").toUpperCase()}
                   </div>
                 )}
               </div>
             </Link>
             {!isOwner && (
               <button
-                onClick={handleFollow}
+                onClick={(e) => { e.stopPropagation(); handleFollow(); }}
                 className={clsx(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors",
+                  "text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-all",
                   following
-                    ? "border-zinc-400 text-zinc-400"
-                    : "border-pink-500 text-pink-500"
+                    ? "border-zinc-500 text-zinc-400 bg-zinc-800/50"
+                    : "border-pink-500 text-pink-400 bg-pink-500/10"
                 )}
               >
                 {following ? "Following" : "+ Follow"}
@@ -267,67 +289,74 @@ export default function VideoCard({
           </div>
 
           {/* Like */}
-          <ActionButton
+          <SideButton
+            onClick={(e) => { e.stopPropagation(); handleLike(); }}
             icon={
               <Heart
-                className={clsx("w-7 h-7", liked ? "fill-pink-500 text-pink-500" : "text-white")}
+                className={clsx(
+                  "w-7 h-7 transition-all",
+                  liked ? "fill-pink-500 text-pink-500 scale-110" : "text-white"
+                )}
               />
             }
             label={formatCount(likeCount)}
-            onClick={handleLike}
           />
 
           {/* Comment */}
-          <ActionButton
+          <SideButton
+            onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
             icon={<MessageCircle className="w-7 h-7 text-white" />}
             label={formatCount(commentCount)}
-            onClick={() => setShowComments(true)}
           />
 
           {/* Save */}
-          <ActionButton
+          <SideButton
+            onClick={(e) => { e.stopPropagation(); handleSave(); }}
             icon={
               <Bookmark
-                className={clsx("w-7 h-7", saved ? "fill-yellow-400 text-yellow-400" : "text-white")}
+                className={clsx(
+                  "w-7 h-7 transition-all",
+                  saved ? "fill-yellow-400 text-yellow-400" : "text-white"
+                )}
               />
             }
             label="Save"
-            onClick={handleSave}
           />
 
           {/* Share */}
-          <ActionButton
+          <SideButton
+            onClick={(e) => { e.stopPropagation(); handleShare(); }}
             icon={<Share2 className="w-7 h-7 text-white" />}
             label="Share"
-            onClick={handleShare}
           />
 
           {/* Mute */}
           <button
-            onClick={onMuteToggle}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-black/40"
+            onClick={(e) => { e.stopPropagation(); onMuteToggle(); }}
+            className="flex flex-col items-center gap-1"
           >
-            {globalMuted ? (
-              <VolumeX className="w-5 h-5 text-white" />
-            ) : (
-              <Volume2 className="w-5 h-5 text-white" />
-            )}
+            <div className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/10">
+              {globalMuted
+                ? <VolumeX className="w-5 h-5 text-white" />
+                : <Volume2 className="w-5 h-5 text-white" />
+              }
+            </div>
           </button>
 
           {/* Owner menu */}
           {isOwner && (
             <div className="relative">
               <button
-                onClick={() => setShowMenu((v) => !v)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-black/40"
+                onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); }}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/10"
               >
                 <MoreVertical className="w-5 h-5 text-white" />
               </button>
               {showMenu && (
-                <div className="absolute right-12 bottom-0 bg-zinc-900 border border-zinc-700 rounded-xl shadow-lg w-36 overflow-hidden">
+                <div className="absolute right-12 bottom-0 bg-zinc-900/95 backdrop-blur-md border border-zinc-700/60 rounded-2xl shadow-2xl w-36 overflow-hidden">
                   <button
-                    onClick={handleDelete}
-                    className="flex items-center gap-2 w-full px-4 py-3 text-red-400 hover:bg-zinc-800 text-sm"
+                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); handleDelete(); }}
+                    className="flex items-center gap-2 w-full px-4 py-3.5 text-red-400 hover:bg-zinc-800 text-sm font-medium"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
@@ -338,33 +367,55 @@ export default function VideoCard({
           )}
         </div>
 
-        {/* Bottom info */}
-        <div className="absolute bottom-0 left-0 right-16 p-4 pb-6">
-          <Link href={`/profile/${video.userId}`} className="flex items-center gap-2 mb-2">
-            <span className="text-white font-bold text-sm hover:underline">
+        {/* ── Bottom info (z-30) ── */}
+        <div className="absolute bottom-0 left-0 right-16 p-4 pb-20 md:pb-8 z-30">
+          <Link
+            href={`/profile/${video.userId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1.5 mb-2 group"
+          >
+            <span className="text-white font-bold text-sm group-hover:underline drop-shadow-lg">
               @{video.user.username}
             </span>
           </Link>
-          <h2 className="text-white font-semibold text-sm leading-snug line-clamp-2 mb-1">
+
+          <h2 className="text-white font-semibold text-sm leading-snug line-clamp-2 mb-1.5 drop-shadow-lg">
             {video.title}
           </h2>
+
           {video.description && (
-            <p className="text-zinc-300 text-xs line-clamp-2 mb-1">{video.description}</p>
+            <p className="text-zinc-300 text-xs line-clamp-2 mb-1.5 drop-shadow">
+              {video.description}
+            </p>
           )}
+
           {video.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {video.tags.slice(0, 4).map((tag) => (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {video.tags.slice(0, 5).map((tag) => (
                 <Link
                   key={tag}
                   href={`/explore?tag=${encodeURIComponent(tag)}`}
-                  className="text-cyan-400 text-xs font-medium hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-cyan-400 text-xs font-semibold hover:underline drop-shadow"
                 >
                   #{tag}
                 </Link>
               ))}
             </div>
           )}
-          <p className="text-zinc-500 text-xs mt-1">{formatCount(video.views)} views</p>
+
+          <p className="text-zinc-500 text-xs drop-shadow">
+            {formatCount(video.views)} views
+          </p>
+        </div>
+
+        {/* ── Progress bar ── */}
+        <div className="absolute bottom-0 inset-x-0 h-0.5 bg-white/15 z-30">
+          <div
+            ref={progressRef}
+            className="h-full bg-white/70"
+            style={{ width: "0%" }}
+          />
         </div>
       </div>
 
@@ -379,19 +430,21 @@ export default function VideoCard({
   );
 }
 
-function ActionButton({
+function SideButton({
   icon,
   label,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
 }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1">
-      <div className="drop-shadow-lg">{icon}</div>
-      <span className="text-white text-xs font-semibold drop-shadow">{label}</span>
+    <button onClick={onClick} className="flex flex-col items-center gap-1 group">
+      <div className="drop-shadow-lg group-active:scale-90 transition-transform">
+        {icon}
+      </div>
+      <span className="text-white text-xs font-semibold drop-shadow-lg">{label}</span>
     </button>
   );
 }

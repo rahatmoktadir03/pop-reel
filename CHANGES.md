@@ -336,6 +336,90 @@ Added `@keyframes floatY` used by the floating stat cards on the landing page he
 
 ---
 
+## 12. Uploadthing Integration (S3 Replacement)
+
+Replaced AWS S3 with Uploadthing for video storage. No AWS account needed.
+
+### New files
+| File | Purpose |
+|------|---------|
+| `src/app/api/uploadthing/core.ts` | File router — accepts video files up to 128 MB, auth via `safeAuth()`, returns CDN URL |
+| `src/app/api/uploadthing/route.ts` | Next.js GET/POST handler for Uploadthing |
+| `src/utils/uploadthing.ts` | `useUploadThing` React hook for the client |
+| `src/app/api/moderate/route.ts` | Content moderation split into its own endpoint (was bundled with /api/upload) |
+
+### Updated files
+| File | Change |
+|------|--------|
+| `src/app/components/UploadForm.tsx` | Replaced `fetch("/api/upload")` with `useUploadThing("videoUploader")` hook; calls `/api/moderate` first, then `/api/videos` for metadata |
+| `src/app/api/videos/[id]/route.ts` | DELETE handler now uses `utapi.deleteFiles(key)` for Uploadthing CDN URLs, falls back to local deletion for old `/uploads/` files |
+| `next.config.ts` | Added `utfs.io` and `*.ufs.sh` to `images.remotePatterns` |
+| `package.json` | Added `uploadthing`, `@uploadthing/react`; added `overrides: { "effect": "3.17.7" }` to dedupe Uploadthing's internal Effect dependency |
+| `.env.local` | Added `UPLOADTHING_TOKEN` placeholder |
+
+### Upload flow (new)
+1. User selects video → preview shown
+2. First frame captured for moderation
+3. POST `/api/moderate` — Google Vision check (skips if not configured)
+4. `startUpload([file])` — browser uploads directly to Uploadthing CDN
+5. POST `/api/videos` — saves metadata + CDN URL to SQLite
+
+### Bug fixes during integration
+- **`/api/uploadthing` returning 404 on callback**: Clerk middleware was blocking the callback from Uploadthing's servers (no Clerk session on server-to-server calls). Fixed by adding `/api/uploadthing(.*)` to the public routes in `src/middleware.ts`.
+- **Google Vision 18-second timeout**: `GOOGLE_APPLICATION_CREDENTIALS` was set to a placeholder path. The check only skipped when the variable was empty. Fixed by also skipping when the value contains `"path_to_your"`.
+- **Effect version mismatch**: Uploadthing's internal `effect` package was `3.17.7` but the hoisted version was `3.18.4`. Added `"overrides": { "effect": "3.17.7" }` to `package.json`.
+
+---
+
+## 13. Video Feed Layout Overhaul (TikTok-style)
+
+### Root cause diagnosis (3 bugs, all interacting)
+
+**Bug 1 — Body scroll intercepting the snap container**
+`html` and `body` had no `overflow: hidden`. When the user scrolled, the browser applied scroll
+to the body (no snap, no IntersectionObserver events). The `fixed` feed container sat still
+underneath while the invisible page scrolled. Fix: VideoFeed now locks body + html overflow on
+mount and restores it on unmount:
+```ts
+document.body.style.overflow = "hidden";
+document.documentElement.style.overflow = "hidden";
+```
+
+**Bug 2 — IntersectionObserver using viewport as root**
+The observer was watching card visibility against the browser viewport. But the actual scrolling
+happened inside an inner div — so from the viewport's perspective, no card ever changed visibility.
+Fix: `root: containerRef.current` (the scroll container itself).
+
+**Bug 3 — `seenIds` state causing observer to constantly reconnect**
+`seenIds` was `useState`. Each batch of loaded videos changed `seenIds` → `loadVideos` callback
+recreated → observer `useEffect` re-ran → observer disconnected and reconnected → fresh
+intersection events fired → `activeIndex` snapped back to 0. Fix: changed `seenIds` to a `useRef`
+so `loadVideos` only depends on `fetchUrl` (stable). Observer only reconnects when `videos.length`
+changes, not on every load.
+
+### Changes — `VideoFeed.tsx`
+| Change | Detail |
+|--------|--------|
+| Body scroll lock | `useEffect` sets `overflow: hidden` on `body` + `html` on mount, restores on unmount |
+| Fixed container | `fixed inset-0 md:left-60` — fills content area beside sidebar, independent of page flow |
+| Observer root | `root: containerRef.current` — watches scroll within container, not viewport |
+| Stable `loadVideos` | `seenIds` moved from `useState` → `useRef`; callback only depends on `fetchUrl` |
+| Observer thresholds | `[0.5, 0.9]` — picks entry with highest `intersectionRatio` for robust active-card detection |
+
+### Changes — `VideoCard.tsx`
+| Change | Detail |
+|--------|--------|
+| `object-cover` | Video fills the card edge-to-edge (TikTok-style) instead of `object-contain` with black bars |
+| Tap-to-play layer | Transparent `div` at `z-20` covers whole card — clicking anywhere not on a button toggles play/pause |
+| `e.stopPropagation()` | All action buttons, links, and menus stop click propagation so taps don't also hit the play layer |
+| Progress bar | `0.5px` white bar at bottom; updates via `progressRef.current.style.width` (direct DOM, no React re-render per frame) |
+| Pause indicator | Centered play icon with `backdrop-blur-sm` glass card, only shown when paused |
+| Gradient overlays | Two layers: tall bottom-up for text readability, short top-down for status bar area |
+| Action button press feel | `group-active:scale-90` on icon wrapper — tactile tap response |
+| Owner delete menu | Glassmorphism: `bg-zinc-900/95 backdrop-blur-md`, rounded-2xl |
+
+---
+
 ## How to Run
 
 ```bash
