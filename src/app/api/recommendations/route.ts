@@ -102,10 +102,36 @@ export async function GET(req: NextRequest) {
     const rest = scored.slice(topN).sort(() => Math.random() - 0.5);
     const final = [...top, ...rest].slice(0, limit);
 
-    const videos = final.map(({ video }) => ({
+    let videos = final.map(({ video }) => ({
       ...video,
       tags: JSON.parse(video.tags || "[]"),
+      isLiked: false,
+      isSaved: false,
+      isFollowing: false,
     }));
+
+    // Enrich with per-user social state
+    if (userId && videos.length > 0) {
+      const ids = videos.map((v) => v.id);
+      const [likes, saves] = await Promise.all([
+        prisma.like.findMany({
+          where: { userId, videoId: { in: ids } },
+          select: { videoId: true },
+        }),
+        prisma.save.findMany({
+          where: { userId, videoId: { in: ids } },
+          select: { videoId: true },
+        }),
+      ]);
+      const likedSet = new Set(likes.map((l) => l.videoId));
+      const savedSet = new Set(saves.map((s) => s.videoId));
+      videos = videos.map((v) => ({
+        ...v,
+        isLiked: likedSet.has(v.id),
+        isSaved: savedSet.has(v.id),
+        isFollowing: followingSet.has(v.userId),
+      }));
+    }
 
     return NextResponse.json({ videos });
   } catch (err) {

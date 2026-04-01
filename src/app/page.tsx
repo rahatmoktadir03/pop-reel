@@ -122,12 +122,12 @@ export default async function LandingPage() {
             {/* Social proof */}
             <div className="flex items-center gap-6 mt-10 justify-center lg:justify-start">
               <div>
-                <p className="text-2xl font-black text-white">11+</p>
+                <p className="text-2xl font-black text-white">15+</p>
                 <p className="text-zinc-500 text-xs">Videos</p>
               </div>
               <div className="w-px h-8 bg-zinc-800" />
               <div>
-                <p className="text-2xl font-black text-white">5</p>
+                <p className="text-2xl font-black text-white">8</p>
                 <p className="text-zinc-500 text-xs">Creators</p>
               </div>
               <div className="w-px h-8 bg-zinc-800" />

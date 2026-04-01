@@ -417,6 +417,8 @@ changes, not on every load.
 | Gradient overlays | Two layers: tall bottom-up for text readability, short top-down for status bar area |
 | Action button press feel | `group-active:scale-90` on icon wrapper — tactile tap response |
 | Owner delete menu | Glassmorphism: `bg-zinc-900/95 backdrop-blur-md`, rounded-2xl |
+| Desktop portrait layout | On `md+`, video container gets `aspect-[9/16]` + `flex-none` so it's portrait-shaped and centered, with action buttons placed in an adjacent flex column rather than overlaid at `right-3` (which was placing them at the far right of the 1300px+ content area) |
+| Single `<video>` element | Earlier iteration had two `<video>` elements (one for mobile, one for desktop). Only the last ref assignment wins, breaking the active-card ref. Fixed by using one `<video>` inside a container whose dimensions are responsive via Tailwind classes |
 
 ---
 

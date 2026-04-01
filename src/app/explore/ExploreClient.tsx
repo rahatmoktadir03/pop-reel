@@ -2,15 +2,28 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Search, TrendingUp, Loader2, X } from "lucide-react";
+import { Search, TrendingUp, Loader2, X, Flame, Sparkles } from "lucide-react";
 import VideoGrid from "../components/VideoGrid";
 import { Video } from "../components/VideoCard";
 import clsx from "clsx";
 
 const TRENDING_TAGS = [
-  "funny", "dance", "music", "food", "travel", "fitness",
-  "beauty", "gaming", "tech", "art", "comedy", "lifestyle",
-  "nature", "sports", "education", "diy",
+  { tag: "funny",     emoji: "😂" },
+  { tag: "dance",     emoji: "💃" },
+  { tag: "music",     emoji: "🎵" },
+  { tag: "food",      emoji: "🍕" },
+  { tag: "travel",    emoji: "✈️" },
+  { tag: "fitness",   emoji: "💪" },
+  { tag: "beauty",    emoji: "💄" },
+  { tag: "gaming",    emoji: "🎮" },
+  { tag: "tech",      emoji: "💻" },
+  { tag: "art",       emoji: "🎨" },
+  { tag: "comedy",    emoji: "🎭" },
+  { tag: "cars",      emoji: "🚗" },
+  { tag: "nature",    emoji: "🌿" },
+  { tag: "animation", emoji: "✨" },
+  { tag: "scifi",     emoji: "🤖" },
+  { tag: "adventure", emoji: "🏔️" },
 ];
 
 export default function ExploreClient() {
@@ -19,7 +32,18 @@ export default function ExploreClient() {
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [activeTag, setActiveTag] = useState(searchParams.get("tag") || "");
   const [videos, setVideos] = useState<Video[]>([]);
+  const [trending, setTrending] = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingTrending, setLoadingTrending] = useState(true);
+
+  // Load trending videos for default state
+  useEffect(() => {
+    setLoadingTrending(true);
+    fetch("/api/recommendations?limit=12")
+      .then((r) => r.json())
+      .then((data) => setTrending(data.videos || []))
+      .finally(() => setLoadingTrending(false));
+  }, []);
 
   const search = useCallback(async (q: string, tag: string) => {
     if (!q && !tag) { setVideos([]); return; }
@@ -60,68 +84,100 @@ export default function ExploreClient() {
   const hasSearch = query || activeTag;
 
   return (
-    <div className="min-h-screen bg-black px-4 pt-4 pb-24 md:pb-8">
-      <div className="mb-6">
-        <h1 className="text-white text-2xl font-black mb-4">Explore</h1>
+    <div className="min-h-screen bg-black pb-24 md:pb-8">
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-black/90 backdrop-blur-xl border-b border-zinc-800/50 px-4 pt-4 pb-3">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-white text-xl font-black">Explore</h1>
+        </div>
 
-        <form onSubmit={handleSearch} className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+        {/* Search bar */}
+        <form onSubmit={handleSearch} className="relative mb-3">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search videos, creators, tags…"
-            className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-full pl-10 pr-10 py-3 text-sm outline-none focus:border-pink-500 transition-colors"
+            className="w-full bg-zinc-900 border border-zinc-700/60 text-white rounded-2xl pl-11 pr-10 py-3 text-sm outline-none focus:border-pink-500/70 focus:ring-1 focus:ring-pink-500/30 transition-all placeholder:text-zinc-500"
           />
           {hasSearch && (
-            <button type="button" onClick={clearSearch} className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="w-4 h-4 text-zinc-500 hover:text-white" />
+            <button type="button" onClick={clearSearch} aria-label="Clear search" className="absolute right-4 top-1/2 -translate-y-1/2">
+              <X className="w-4 h-4 text-zinc-400 hover:text-white transition-colors" />
             </button>
           )}
         </form>
 
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-pink-500" />
-            <span className="text-zinc-400 text-sm font-medium">Trending</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {TRENDING_TAGS.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => handleTagClick(tag)}
-                className={clsx(
-                  "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                  activeTag === tag
-                    ? "bg-pink-500 text-white"
-                    : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                )}
-              >
-                #{tag}
-              </button>
-            ))}
-          </div>
+        {/* Tag pills */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mb-1">
+          {TRENDING_TAGS.map(({ tag, emoji }) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => handleTagClick(tag)}
+              className={clsx(
+                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
+                activeTag === tag
+                  ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-pink-glow"
+                  : "bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-white border border-zinc-700/50"
+              )}
+            >
+              <span>{emoji}</span>
+              <span>#{tag}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
-        </div>
-      ) : hasSearch ? (
-        <>
-          <p className="text-zinc-500 text-sm mb-4">
-            {videos.length > 0
-              ? `${videos.length} results for ${activeTag ? `#${activeTag}` : `"${query}"`}`
-              : `No results for ${activeTag ? `#${activeTag}` : `"${query}"`}`}
-          </p>
-          <VideoGrid videos={videos} emptyMessage={`No videos found`} />
-        </>
-      ) : (
-        <div className="text-center py-16 text-zinc-500">
-          <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>Search for videos or tap a trending tag</p>
-        </div>
-      )}
+      <div className="px-4 pt-5">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-3">
+            <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
+            <p className="text-zinc-500 text-sm">Searching…</p>
+          </div>
+        ) : hasSearch ? (
+          <>
+            {/* Search result header */}
+            <div className="flex items-center gap-2 mb-4">
+              {activeTag ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{TRENDING_TAGS.find(t => t.tag === activeTag)?.emoji ?? "🔍"}</span>
+                  <div>
+                    <h2 className="text-white font-black text-lg">#{activeTag}</h2>
+                    <p className="text-zinc-500 text-xs">{videos.length} videos</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h2 className="text-white font-bold">Results for &quot;{query}&quot;</h2>
+                  <p className="text-zinc-500 text-xs">{videos.length} videos found</p>
+                </div>
+              )}
+            </div>
+            <VideoGrid videos={videos} emptyMessage="No videos found — try a different search" />
+          </>
+        ) : (
+          <>
+            {/* Trending section */}
+            <div className="flex items-center gap-2 mb-4">
+              <Flame className="w-5 h-5 text-orange-400" />
+              <h2 className="text-white font-black text-lg">Trending Now</h2>
+            </div>
+
+            {loadingTrending ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="aspect-[9/16] bg-zinc-900 rounded-2xl shimmer" />
+                ))}
+              </div>
+            ) : (
+              <VideoGrid videos={trending} emptyMessage="No videos yet — be the first to upload!" />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

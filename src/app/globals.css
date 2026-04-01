@@ -5,6 +5,8 @@
 :root {
   --background: #000000;
   --foreground: #ffffff;
+  --pink: #ec4899;
+  --pink-glow: rgba(236, 72, 153, 0.35);
 }
 
 * {
@@ -22,7 +24,6 @@ body {
 ::-webkit-scrollbar {
   display: none;
 }
-
 * {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -32,55 +33,125 @@ body {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
-
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Snap scroll container */
+/* ─── Snap scroll ─────────────────────────────── */
 .snap-container {
   scroll-snap-type: y mandatory;
   overflow-y: scroll;
   height: 100vh;
 }
-
-/* Video card snap */
 .snap-card {
   scroll-snap-align: start;
   height: 100vh;
 }
 
-/* Double-tap heart animation */
+/* ─── Animations ──────────────────────────────── */
+
 @keyframes heartBurst {
-  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
-  40% { transform: scale(1.4) rotate(-15deg); opacity: 1; }
-  80% { transform: scale(1.1) rotate(-15deg); opacity: 1; }
+  0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+  40%  { transform: scale(1.4) rotate(-15deg); opacity: 1; }
+  80%  { transform: scale(1.1) rotate(-15deg); opacity: 1; }
   100% { transform: scale(0) rotate(-15deg); opacity: 0; }
 }
-
 .heart-burst {
   animation: heartBurst 0.9s ease-out forwards;
 }
 
-/* Floating card animation (landing page) */
 @keyframes floatY {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+  50%       { transform: translateY(-8px); }
 }
 
-/* Shimmer loading state */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
+  0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    #1a1a1a 25%,
-    #2a2a2a 50%,
-    #1a1a1a 75%
-  );
+  background: linear-gradient(90deg, #1a1a1a 25%, #2d2d2d 50%, #1a1a1a 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.scale-in {
+  animation: scaleIn 0.25s ease-out forwards;
+}
+
+@keyframes likePopIn {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.like-pop {
+  animation: likePopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Double-tap heart floating upward */
+@keyframes floatHeart {
+  0%   { transform: scale(0) translateY(0); opacity: 0; }
+  20%  { transform: scale(1.6) translateY(-10px); opacity: 1; }
+  80%  { transform: scale(1.2) translateY(-60px); opacity: 0.9; }
+  100% { transform: scale(1) translateY(-90px); opacity: 0; }
+}
+.float-heart {
+  animation: floatHeart 0.8s ease-out forwards;
+  pointer-events: none;
+  position: absolute;
+  font-size: 2.5rem;
+}
+
+/* ─── Gradient text utility ───────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Glass card ──────────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Pink glow shadow ────────────────────────── */
+.glow-pink {
+  box-shadow: 0 0 20px var(--pink-glow), 0 0 60px rgba(236, 72, 153, 0.15);
+}
+
+/* ─── Sidebar nav link pill ───────────────────── */
+.nav-pill {
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+.nav-pill:hover {
+  transform: translateX(3px);
+}
+
+/* ─── Video card action button ripple ─────────── */
+@keyframes ripple {
+  to { transform: scale(3); opacity: 0; }
 }
